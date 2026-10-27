@@ -10,37 +10,90 @@ function parseBoolean(value, fallback = false) {
 }
 
 function parseTechnologies(value) {
-  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
-  if (typeof value !== "string" || !value.trim()) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map(String)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
 
   try {
     const parsed = JSON.parse(value);
+
     if (Array.isArray(parsed)) {
-      return parsed.map(String).map((item) => item.trim()).filter(Boolean);
+      return parsed
+        .map(String)
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
   } catch {
-    // A comma-separated list is also accepted.
+    // Also support comma-separated technologies.
   }
 
-  return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function validOptionalUrl(value) {
-  if (!value) return "";
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
 
   try {
-    const parsed = new URL(value);
-    return ["http:", "https:"].includes(parsed.protocol) ? parsed.toString() : null;
+    const parsed = new URL(value.trim());
+
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return null;
+    }
+
+    return parsed.toString();
   } catch {
     return null;
   }
+}
+
+/**
+ * Generate a homepage screenshot URL from a live website URL.
+ * This uses thum.io; the screenshot is not uploaded to Cloudinary.
+ */
+function makeWebsiteScreenshotUrl(websiteUrl) {
+  if (!websiteUrl) return "";
+
+  const safeUrl = validOptionalUrl(websiteUrl);
+
+  if (!safeUrl) return "";
+
+  return `https://image.thum.io/get/width/1200/crop/900/noanimate/${safeUrl}`;
+}
+
+/**
+ * Screenshot URLs are external images, not Cloudinary assets.
+ * Never send their synthetic IDs to Cloudinary for deletion.
+ */
+function isExternalScreenshot(publicId) {
+  return (
+    typeof publicId === "string" &&
+    publicId.startsWith("external-screenshot:")
+  );
 }
 
 async function makeUniqueSlug(title, currentId = null) {
   const base = slugify(title);
 
   if (!base) {
-    const error = new Error("Project title must contain letters or numbers.");
+    const error = new Error(
+      "Project title must contain letters or numbers."
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -51,7 +104,10 @@ async function makeUniqueSlug(title, currentId = null) {
   while (true) {
     const existing = await Project.findOne({ slug }).select("_id");
 
-    if (!existing || (currentId && existing._id.toString() === currentId.toString())) {
+    if (
+      !existing ||
+      (currentId && existing._id.toString() === currentId.toString())
+    ) {
       return slug;
     }
 
@@ -60,7 +116,13 @@ async function makeUniqueSlug(title, currentId = null) {
 }
 
 async function deleteCloudinaryImage(publicId) {
-  if (!publicId || !cloudinaryConfigured) return;
+  if (
+    !publicId ||
+    !cloudinaryConfigured ||
+    isExternalScreenshot(publicId)
+  ) {
+    return;
+  }
 
   try {
     await cloudinary.uploader.destroy(publicId);
@@ -71,21 +133,33 @@ async function deleteCloudinaryImage(publicId) {
 }
 
 function sendValidationError(res, message) {
-  return res.status(400).json({ success: false, message });
+  return res.status(400).json({
+    success: false,
+    message,
+  });
 }
 
+/**
+ * Public: return published projects.
+ */
 export async function getPublishedProjects(req, res, next) {
   try {
     const projects = await Project.find({ status: "published" })
       .sort({ featured: -1, sortOrder: 1, createdAt: -1 })
       .lean();
 
-    res.json({ success: true, projects });
+    res.json({
+      success: true,
+      projects,
+    });
   } catch (error) {
     next(error);
   }
 }
 
+/**
+ * Public: return one published project by slug.
+ */
 export async function getPublishedProjectBySlug(req, res, next) {
   try {
     const project = await Project.findOne({
@@ -100,35 +174,43 @@ export async function getPublishedProjectBySlug(req, res, next) {
       });
     }
 
-    res.json({ success: true, project });
+    res.json({
+      success: true,
+      project,
+    });
   } catch (error) {
     next(error);
   }
 }
 
+/**
+ * Admin: return every project, including drafts.
+ */
 export async function getAllAdminProjects(req, res, next) {
   try {
     const projects = await Project.find()
       .sort({ updatedAt: -1 })
       .lean();
 
-    res.json({ success: true, projects });
+    res.json({
+      success: true,
+      projects,
+    });
   } catch (error) {
     next(error);
   }
 }
 
+/**
+ * Admin: create a project.
+ *
+ * An uploaded cover image is optional.
+ * If there is no uploaded image, the live website screenshot is used.
+ */
 export async function createProject(req, res, next) {
-  let uploadedImageId;
+  let uploadedImageId = null;
 
   try {
-    if (!cloudinaryConfigured) {
-      return res.status(503).json({
-        success: false,
-        message: "Image storage is not configured on the server.",
-      });
-    }
-
     const {
       title,
       category,
@@ -159,17 +241,58 @@ export async function createProject(req, res, next) {
       );
     }
 
-    if (!req.file?.path || !req.file?.filename) {
-      return sendValidationError(res, "Please upload a project cover image.");
-    }
-
-    uploadedImageId = req.file.filename;
-
     const safeLiveUrl = validOptionalUrl(liveUrl);
     const safeGithubUrl = validOptionalUrl(githubUrl);
 
-    if (safeLiveUrl === null || safeGithubUrl === null) {
-      return sendValidationError(res, "Project URLs must use http or https.");
+    if (safeLiveUrl === null) {
+      return sendValidationError(
+        res,
+        "Live URL must be a valid HTTP or HTTPS URL."
+      );
+    }
+
+    if (safeGithubUrl === null) {
+      return sendValidationError(
+        res,
+        "GitHub URL must be a valid HTTP or HTTPS URL."
+      );
+    }
+
+    // Use an uploaded Cloudinary image if supplied.
+    // Otherwise, generate a screenshot from the live website URL.
+    let coverImage;
+
+    if (req.file) {
+      if (
+        !cloudinaryConfigured ||
+        !req.file.path ||
+        !req.file.filename
+      ) {
+        return res.status(503).json({
+          success: false,
+          message:
+            "Image storage is not configured correctly. Remove the uploaded image or configure Cloudinary.",
+        });
+      }
+
+      uploadedImageId = req.file.filename;
+
+      coverImage = {
+        url: req.file.path,
+        publicId: req.file.filename,
+      };
+    } else {
+      if (!safeLiveUrl) {
+        return sendValidationError(
+          res,
+          "Enter a live website URL to generate the homepage screenshot."
+        );
+      }
+
+      coverImage = {
+        url: makeWebsiteScreenshotUrl(safeLiveUrl),
+        publicId: `external-screenshot:${Date.now()}`,
+      };
     }
 
     const project = await Project.create({
@@ -179,31 +302,47 @@ export async function createProject(req, res, next) {
       shortDescription: shortDescription.trim(),
       description: description.trim(),
       technologies: parseTechnologies(technologies),
-      coverImage: {
-        url: req.file.path,
-        publicId: req.file.filename,
-      },
+      coverImage,
       liveUrl: safeLiveUrl,
       githubUrl: safeGithubUrl,
       featured: parseBoolean(featured),
       status: status === "published" ? "published" : "draft",
-      year: year && Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear(),
-      sortOrder: sortOrder && Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0,
+      year:
+        year !== undefined &&
+        year !== "" &&
+        Number.isFinite(Number(year))
+          ? Number(year)
+          : new Date().getFullYear(),
+      sortOrder:
+        sortOrder !== undefined &&
+        sortOrder !== "" &&
+        Number.isFinite(Number(sortOrder))
+          ? Number(sortOrder)
+          : 0,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Project created successfully.",
       project,
     });
   } catch (error) {
-    if (uploadedImageId) await deleteCloudinaryImage(uploadedImageId);
+    if (uploadedImageId) {
+      await deleteCloudinaryImage(uploadedImageId);
+    }
+
     next(error);
   }
 }
 
+/**
+ * Admin: update a project.
+ *
+ * Updating liveUrl refreshes the screenshot URL when the project uses
+ * an external screenshot. An uploaded replacement image takes priority.
+ */
 export async function updateProject(req, res, next) {
-  let uploadedImageId;
+  let uploadedImageId = null;
 
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -223,37 +362,75 @@ export async function updateProject(req, res, next) {
     }
 
     const body = req.body ?? {};
+    const previousImageId = project.coverImage?.publicId;
 
     if (body.title !== undefined) {
-      if (typeof body.title !== "string" || !body.title.trim()) {
-        return sendValidationError(res, "Project title cannot be empty.");
+      if (
+        typeof body.title !== "string" ||
+        !body.title.trim()
+      ) {
+        return sendValidationError(
+          res,
+          "Project title cannot be empty."
+        );
       }
+
       project.title = body.title.trim();
-      project.slug = await makeUniqueSlug(body.title, project._id);
+      project.slug = await makeUniqueSlug(
+        body.title,
+        project._id
+      );
     }
 
-    for (const field of ["category", "shortDescription", "description"]) {
+    for (const field of [
+      "category",
+      "shortDescription",
+      "description",
+    ]) {
       if (body[field] !== undefined) {
-        if (typeof body[field] !== "string" || !body[field].trim()) {
-          return sendValidationError(res, `${field} cannot be empty.`);
+        if (
+          typeof body[field] !== "string" ||
+          !body[field].trim()
+        ) {
+          return sendValidationError(
+            res,
+            `${field} cannot be empty.`
+          );
         }
+
         project[field] = body[field].trim();
       }
     }
 
     if (body.technologies !== undefined) {
-      project.technologies = parseTechnologies(body.technologies);
+      project.technologies = parseTechnologies(
+        body.technologies
+      );
     }
 
     if (body.liveUrl !== undefined) {
       const url = validOptionalUrl(body.liveUrl);
-      if (url === null) return sendValidationError(res, "Live URL must use http or https.");
+
+      if (url === null) {
+        return sendValidationError(
+          res,
+          "Live URL must be a valid HTTP or HTTPS URL."
+        );
+      }
+
       project.liveUrl = url;
     }
 
     if (body.githubUrl !== undefined) {
       const url = validOptionalUrl(body.githubUrl);
-      if (url === null) return sendValidationError(res, "GitHub URL must use http or https.");
+
+      if (url === null) {
+        return sendValidationError(
+          res,
+          "GitHub URL must be a valid HTTP or HTTPS URL."
+        );
+      }
+
       project.githubUrl = url;
     }
 
@@ -263,58 +440,106 @@ export async function updateProject(req, res, next) {
 
     if (body.status !== undefined) {
       if (!["draft", "published"].includes(body.status)) {
-        return sendValidationError(res, "Status must be draft or published.");
+        return sendValidationError(
+          res,
+          "Status must be draft or published."
+        );
       }
+
       project.status = body.status;
     }
 
-    if (body.year !== undefined && Number.isFinite(Number(body.year))) {
+    if (
+      body.year !== undefined &&
+      body.year !== "" &&
+      Number.isFinite(Number(body.year))
+    ) {
       project.year = Number(body.year);
     }
 
-    if (body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder))) {
+    if (
+      body.sortOrder !== undefined &&
+      body.sortOrder !== "" &&
+      Number.isFinite(Number(body.sortOrder))
+    ) {
       project.sortOrder = Number(body.sortOrder);
     }
 
+    // A newly uploaded image replaces the existing screenshot/image.
     if (req.file) {
-      if (!cloudinaryConfigured || !req.file.path || !req.file.filename) {
+      if (
+        !cloudinaryConfigured ||
+        !req.file.path ||
+        !req.file.filename
+      ) {
         return res.status(503).json({
           success: false,
-          message: "Image storage is not configured correctly.",
+          message:
+            "Image storage is not configured correctly.",
         });
       }
 
       uploadedImageId = req.file.filename;
-      const previousImageId = project.coverImage?.publicId;
 
       project.coverImage = {
         url: req.file.path,
         publicId: req.file.filename,
       };
-
-      await project.save();
-      await deleteCloudinaryImage(previousImageId);
-
-      return res.json({
-        success: true,
-        message: "Project updated successfully.",
-        project,
-      });
+    } else if (
+      body.liveUrl !== undefined &&
+      isExternalScreenshot(previousImageId)
+    ) {
+      // Refresh the screenshot URL when the website URL changes.
+      if (project.liveUrl) {
+        project.coverImage = {
+          url: makeWebsiteScreenshotUrl(project.liveUrl),
+          publicId: `external-screenshot:${Date.now()}`,
+        };
+      } else {
+        return sendValidationError(
+          res,
+          "A live website URL is required when using a website screenshot as the cover image."
+        );
+      }
+    } else if (
+      !project.coverImage?.url &&
+      project.liveUrl
+    ) {
+      // Repair older records that have a live URL but no cover image.
+      project.coverImage = {
+        url: makeWebsiteScreenshotUrl(project.liveUrl),
+        publicId: `external-screenshot:${Date.now()}`,
+      };
     }
 
     await project.save();
 
-    res.json({
+    // Remove the previous image only after the update succeeds.
+    if (
+      previousImageId &&
+      previousImageId !== project.coverImage?.publicId
+    ) {
+      await deleteCloudinaryImage(previousImageId);
+    }
+
+    return res.json({
       success: true,
       message: "Project updated successfully.",
       project,
     });
   } catch (error) {
-    if (uploadedImageId) await deleteCloudinaryImage(uploadedImageId);
+    // Clean up a newly uploaded image if saving the update fails.
+    if (uploadedImageId) {
+      await deleteCloudinaryImage(uploadedImageId);
+    }
+
     next(error);
   }
 }
 
+/**
+ * Admin: delete a project and its Cloudinary image, if applicable.
+ */
 export async function deleteProject(req, res, next) {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -336,10 +561,12 @@ export async function deleteProject(req, res, next) {
     await project.deleteOne();
 
     if (project.coverImage?.publicId) {
-      await deleteCloudinaryImage(project.coverImage.publicId);
+      await deleteCloudinaryImage(
+        project.coverImage.publicId
+      );
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Project deleted successfully.",
     });

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
   Trash2,
   Upload,
   X,
+  ExternalLink,
 } from "lucide-react";
 
 import {
@@ -45,10 +47,28 @@ const inputClass =
 
 const labelClass = "mb-2 block text-xs font-medium text-white/65";
 
+function makeScreenshotUrl(value) {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value.trim());
+
+    if (!["http:", "https:"].includes(url.protocol)) return "";
+
+    return `https://image.thum.io/get/width/1200/crop/900/noanimate/${url.toString()}`;
+  } catch {
+    return "";
+  }
+}
+
 function formatDate(date) {
   if (!date) return "—";
 
-  return new Date(date).toLocaleDateString(undefined, {
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -96,20 +116,25 @@ function ProjectForm({ project, onClose, onSaved }) {
   });
 
   const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(
-    project?.coverImage?.url || ""
-  );
+  const [imagePreview, setImagePreview] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const screenshotUrl = makeScreenshotUrl(form.liveUrl);
+
   useEffect(() => {
-    if (!image) return undefined;
+    setImageFailed(false);
 
-    const objectUrl = URL.createObjectURL(image);
-    setImagePreview(objectUrl);
+    if (image) {
+      const objectUrl = URL.createObjectURL(image);
+      setImagePreview(objectUrl);
 
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [image]);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    setImagePreview(screenshotUrl || project?.coverImage?.url || "");
+  }, [image, screenshotUrl, project?.coverImage?.url]);
 
   function updateField(event) {
     const { name, value, type, checked } = event.target;
@@ -124,8 +149,10 @@ function ProjectForm({ project, onClose, onSaved }) {
     event.preventDefault();
     setError("");
 
-    if (!project && !image) {
-      setError("Please select a cover image for this project.");
+    if (!form.liveUrl.trim() && !image && !project?.coverImage?.url) {
+      setError(
+        "Enter a live website URL to generate a screenshot, or upload a cover image."
+      );
       return;
     }
 
@@ -135,12 +162,15 @@ function ProjectForm({ project, onClose, onSaved }) {
     payload.append("category", form.category.trim());
     payload.append("shortDescription", form.shortDescription.trim());
     payload.append("description", form.description.trim());
-    payload.append("technologies", JSON.stringify(
-      form.technologies
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)
-    ));
+    payload.append(
+      "technologies",
+      JSON.stringify(
+        form.technologies
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
     payload.append("liveUrl", form.liveUrl.trim());
     payload.append("githubUrl", form.githubUrl.trim());
     payload.append("year", form.year);
@@ -148,9 +178,7 @@ function ProjectForm({ project, onClose, onSaved }) {
     payload.append("featured", String(form.featured));
     payload.append("status", form.status);
 
-    if (image) {
-      payload.append("coverImage", image);
-    }
+    if (image) payload.append("coverImage", image);
 
     try {
       setSaving(true);
@@ -164,9 +192,9 @@ function ProjectForm({ project, onClose, onSaved }) {
         body: payload,
       });
 
-      await onSaved(result.message);
+      await onSaved(result.message || "Project saved successfully.");
     } catch (requestError) {
-      setError(requestError.message);
+      setError(requestError.message || "Unable to save this project.");
     } finally {
       setSaving(false);
     }
@@ -174,7 +202,7 @@ function ProjectForm({ project, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-3 backdrop-blur-sm sm:p-6">
-      <div className="mx-auto my-4 max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#0C0C0C] shadow-2xl sm:my-8">
+      <div className="mx-auto my-4 max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-[#0C0C0C] shadow-2xl sm:my-8">
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-8">
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#C5FF62]">
@@ -184,7 +212,7 @@ function ProjectForm({ project, onClose, onSaved }) {
               {project ? "Edit project" : "Add a project"}
             </h2>
             <p className="mt-2 text-sm text-white/45">
-              Keep the details clear. Let the work speak for itself.
+              Your saved details power the public project page.
             </p>
           </div>
 
@@ -271,10 +299,10 @@ function ProjectForm({ project, onClose, onSaved }) {
                   name="description"
                   required
                   maxLength={10000}
-                  rows={5}
+                  rows={7}
                   value={form.description}
                   onChange={updateField}
-                  placeholder="Explain the problem, your approach, and what you built..."
+                  placeholder="Describe the project, its purpose, the work you did, and the result..."
                   className={`${inputClass} resize-y`}
                 />
               </div>
@@ -292,68 +320,107 @@ function ProjectForm({ project, onClose, onSaved }) {
                   className={inputClass}
                 />
                 <p className="mt-2 text-xs text-white/35">
-                  Separate each technology with a comma.
+                  Separate technologies with commas.
                 </p>
               </div>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className={labelClass}>Cover image *</label>
+                <label className={labelClass}>Homepage screenshot</label>
 
-                <label className="group flex min-h-48 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[0.025] transition hover:border-[#C5FF62]/60">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Project cover preview"
-                      className="h-48 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center px-5 py-10 text-center">
-                      <ImagePlus
-                        size={30}
-                        className="mb-3 text-[#C5FF62]"
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111]">
+                  <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
+                    <span className="h-2 w-2 rounded-full bg-red-400/80" />
+                    <span className="h-2 w-2 rounded-full bg-yellow-400/80" />
+                    <span className="h-2 w-2 rounded-full bg-green-400/80" />
+                    <span className="ml-2 truncate text-[10px] text-white/40">
+                      {form.liveUrl || "Enter a website URL below"}
+                    </span>
+                  </div>
+
+                  <div className="relative flex min-h-48 items-center justify-center bg-[#171717]">
+                    {imagePreview && !imageFailed ? (
+                      <img
+                        src={imagePreview}
+                        alt="Homepage screenshot preview"
+                        className="min-h-48 w-full object-cover"
+                        onError={() => setImageFailed(true)}
                       />
-                      <span className="text-sm text-white">
-                        Choose an image
-                      </span>
-                      <span className="mt-1 text-xs text-white/40">
-                        JPG, PNG, or WebP · Max 5 MB
-                      </span>
-                    </div>
+                    ) : (
+                      <div className="px-5 py-10 text-center">
+                        <ImagePlus
+                          size={28}
+                          className="mx-auto mb-3 text-[#C5FF62]"
+                        />
+                        <p className="text-sm text-white/75">
+                          {imageFailed
+                            ? "The screenshot could not be loaded."
+                            : "Your preview will appear here."}
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-white/35">
+                          Enter a live URL, or upload an image below.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {form.liveUrl && (
+                    <a
+                      href={form.liveUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-3 text-xs text-[#C5FF62] hover:bg-white/5"
+                    >
+                      Open live website <ExternalLink size={13} />
+                    </a>
                   )}
+                </div>
 
-                  <span className="flex w-full items-center justify-center gap-2 border-t border-white/10 px-4 py-3 text-xs text-white/60">
-                    <Upload size={14} />
-                    {image ? "Choose another image" : "Upload cover image"}
-                  </span>
+                <p className="mt-2 text-xs leading-5 text-white/35">
+                  Screenshot previews are generated from your website URL.
+                  They may take a moment to load.
+                </p>
 
+                <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs text-white/65 transition hover:bg-white/5">
+                  <Upload size={15} />
+                  {image ? image.name : "Upload a custom cover image (optional)"}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="sr-only"
-                    onChange={(event) =>
-                      setImage(event.target.files?.[0] || null)
-                    }
+                    onChange={(event) => {
+                      setImage(event.target.files?.[0] || null);
+                      setImageFailed(false);
+                    }}
                   />
                 </label>
-                {project && (
-                  <p className="mt-2 text-xs text-white/35">
-                    Leave the existing image unchanged by not selecting a new one.
-                  </p>
+
+                {image && (
+                  <button
+                    type="button"
+                    onClick={() => setImage(null)}
+                    className="mt-2 text-xs text-white/45 hover:text-white"
+                  >
+                    Use website screenshot instead
+                  </button>
                 )}
               </div>
 
               <div>
                 <label className={labelClass} htmlFor="liveUrl">
-                  Live website URL
+                  Live website URL *
                 </label>
                 <input
                   id="liveUrl"
                   name="liveUrl"
                   type="url"
+                  required={!image && !project?.coverImage?.url}
                   value={form.liveUrl}
-                  onChange={updateField}
+                  onChange={(event) => {
+                    updateField(event);
+                    setImageFailed(false);
+                  }}
                   placeholder="https://example.com"
                   className={inputClass}
                 />
@@ -369,7 +436,7 @@ function ProjectForm({ project, onClose, onSaved }) {
                   type="url"
                   value={form.githubUrl}
                   onChange={updateField}
-                  placeholder="https://github.com/..."
+                  placeholder="https://github.com/username/project"
                   className={inputClass}
                 />
               </div>
@@ -419,7 +486,7 @@ function ProjectForm({ project, onClose, onSaved }) {
                     Feature this project
                   </span>
                   <span className="mt-1 block text-xs text-white/40">
-                    Give this project priority in featured project listings.
+                    Give it priority in the featured section.
                   </span>
                 </span>
               </label>
@@ -461,11 +528,7 @@ function ProjectForm({ project, onClose, onSaved }) {
               ) : (
                 <Save size={16} />
               )}
-              {saving
-                ? "Saving..."
-                : project
-                  ? "Save changes"
-                  : "Save project"}
+              {saving ? "Saving..." : project ? "Save changes" : "Save project"}
             </button>
           </div>
         </form>
@@ -565,11 +628,13 @@ export default function Admin() {
   }
 
   async function handleDelete(project) {
-    const confirmed = window.confirm(
-      `Delete "${project.title}" permanently? This also attempts to remove its cover image.`
-    );
-
-    if (!confirmed) return;
+    if (
+      !window.confirm(
+        `Delete "${project.title}" permanently?`
+      )
+    ) {
+      return;
+    }
 
     setPageError("");
     setNotice("");
@@ -602,12 +667,7 @@ export default function Admin() {
         body: payload,
       });
 
-      setNotice(
-        nextStatus === "published"
-          ? "Project published successfully."
-          : "Project moved back to drafts."
-      );
-
+      setNotice(result.message || `Project ${nextStatus}.`);
       await loadProjects();
     } catch (error) {
       setPageError(error.message);
@@ -617,6 +677,7 @@ export default function Admin() {
   const visibleProjects = projects.filter((project) => {
     const matchesFilter = filter === "all" || project.status === filter;
     const term = search.trim().toLowerCase();
+
     const matchesSearch =
       !term ||
       project.title?.toLowerCase().includes(term) ||
@@ -666,8 +727,7 @@ export default function Admin() {
               Welcome back.
             </h1>
             <p className="mt-3 text-sm leading-6 text-white/45">
-              Sign in to manage your projects, update your portfolio, and
-              control what visitors see.
+              Sign in to manage your projects and control what visitors see.
             </p>
 
             {pageError && (
@@ -727,8 +787,7 @@ export default function Admin() {
             </form>
 
             <p className="mt-6 text-center text-xs leading-5 text-white/30">
-              Authorized access only. Your admin account is created through
-              the backend setup script.
+              Authorized access only.
             </p>
           </div>
 
@@ -816,7 +875,7 @@ export default function Admin() {
                 Projects<span className="text-[#C5FF62]">.</span>
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-white/45">
-                Add your latest work, keep drafts private, and publish finished
+                Add your work, keep drafts private, and publish finished
                 projects to your portfolio.
               </p>
             </div>
@@ -864,21 +923,9 @@ export default function Admin() {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {[
-              {
-                label: "Total projects",
-                value: projects.length,
-                note: "Across your workspace",
-              },
-              {
-                label: "Published",
-                value: publishedCount,
-                note: "Visible to visitors",
-              },
-              {
-                label: "Drafts",
-                value: draftCount,
-                note: "Private until published",
-              },
+              { label: "Total projects", value: projects.length, note: "Across your workspace" },
+              { label: "Published", value: publishedCount, note: "Visible to visitors" },
+              { label: "Drafts", value: draftCount, note: "Private until published" },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -886,7 +933,7 @@ export default function Admin() {
               >
                 <p className="text-sm text-white/45">{stat.label}</p>
                 <p className="mt-4 text-3xl font-semibold tabular-nums">
-                  {stat.value.toString().padStart(2, "0")}
+                  {String(stat.value).padStart(2, "0")}
                 </p>
                 <p className="mt-2 text-xs text-white/30">{stat.note}</p>
               </div>
@@ -907,10 +954,7 @@ export default function Admin() {
                 disabled={loadingProjects}
                 className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/60 transition hover:bg-white/5 disabled:opacity-50"
               >
-                <RefreshCw
-                  size={14}
-                  className={loadingProjects ? "animate-spin" : ""}
-                />
+                <RefreshCw size={14} className={loadingProjects ? "animate-spin" : ""} />
                 Refresh
               </button>
             </div>
@@ -952,17 +996,14 @@ export default function Admin() {
               </div>
             ) : visibleProjects.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
-                <FilePlus2
-                  size={30}
-                  className="mx-auto mb-4 text-white/35"
-                />
+                <FilePlus2 size={30} className="mx-auto mb-4 text-white/35" />
                 <h4 className="font-medium">
                   {projects.length ? "No matching projects" : "Your next project starts here"}
                 </h4>
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/40">
                   {projects.length
                     ? "Try another search or filter."
-                    : "Add a project to start building your portfolio from this dashboard."}
+                    : "Add a project to start building your portfolio."}
                 </p>
                 {projects.length === 0 && (
                   <button
@@ -989,6 +1030,7 @@ export default function Admin() {
                         <img
                           src={project.coverImage.url}
                           alt={project.title}
+                          loading="lazy"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -1022,18 +1064,10 @@ export default function Admin() {
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       <button
                         onClick={() => togglePublish(project)}
-                        title={
-                          project.status === "published"
-                            ? "Move to drafts"
-                            : "Publish project"
-                        }
+                        title={project.status === "published" ? "Move to drafts" : "Publish project"}
                         className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2.5 text-xs text-white/65 transition hover:bg-white/5"
                       >
-                        {project.status === "published" ? (
-                          <Eye size={14} />
-                        ) : (
-                          <Check size={14} />
-                        )}
+                        {project.status === "published" ? <Eye size={14} /> : <Check size={14} />}
                         {project.status === "published" ? "Unpublish" : "Publish"}
                       </button>
 

@@ -10,9 +10,9 @@ const {
 } = process.env;
 
 const cloudinaryConfigured = Boolean(
-  CLOUDINARY_CLOUD_NAME &&
-    CLOUDINARY_API_KEY &&
-    CLOUDINARY_API_SECRET &&
+  CLOUDINARY_CLOUD_NAME?.trim() &&
+    CLOUDINARY_API_KEY?.trim() &&
+    CLOUDINARY_API_SECRET?.trim() &&
     !CLOUDINARY_CLOUD_NAME.startsWith("YOUR_")
 );
 
