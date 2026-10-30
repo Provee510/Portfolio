@@ -291,12 +291,12 @@ export default function Projects() {
           </div>
         </motion.div>
 
-        <div className="mt-16 flex flex-col gap-5 border-t border-black/10 pt-5 sm:mt-24 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-16 flex flex-col gap-5 border-t border-black/10 pt-5 sm:mt-24 sm:flex-row sm:items-center sm:justify-between py-5">
           <p className="text-xs text-black/50">
             A closer look at what I’m building.
           </p>
 
-          <div className="flex flex-wrap gap-2" aria-label="Filter projects">
+          <div className="flex flex-wrap gap-4" aria-label="Filter projects ">
             {filters.map((filter) => {
               const isActive = activeFilter === filter;
 
@@ -365,7 +365,7 @@ export default function Projects() {
         {!loading && !error && projects.length > 0 && (
           <>
             {featuredProject && activeFilter === "All projects" && (
-              <div className="mb-16 mt-10 grid gap-8 border-b border-black/10 pb-14 md:grid-cols-2 md:items-center md:gap-12">
+              <div className="mb-16 mt-10 grid gap-8 border-b border-black/10 pb-14 md:grid-cols-2 md:items-center md:gap-12 py-5">
                 <Link
                   to={`/projects/${encodeURIComponent(featuredProject.id)}`}
                   className="group relative block overflow-hidden"

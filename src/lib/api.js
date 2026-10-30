@@ -1,4 +1,3 @@
-
 const API_URL = (
   import.meta.env.VITE_API_URL || "https://portfolio-p6yc.onrender.com"
 ).replace(/\/+$/, "");
