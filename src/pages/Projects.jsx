@@ -295,7 +295,7 @@ export default function Projects() {
           <p className="text-xs text-black/50">
             A closer look at what I’m building.
           </p>
-
+           
           <div className="flex flex-wrap gap-4" aria-label="Filter projects ">
             {filters.map((filter) => {
               const isActive = activeFilter === filter;

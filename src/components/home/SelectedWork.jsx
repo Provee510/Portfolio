@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -13,6 +14,7 @@ function getProjectVisual(project) {
 
   if (slug.includes("ironharvest")) return "ironharvest";
   if (slug.includes("karma")) return "karma";
+
   if (
     slug.includes("tiktok") ||
     slug.includes("message") ||
@@ -43,7 +45,7 @@ function normalizeProject(project, index) {
 }
 
 function ProjectVisual({ project }) {
-  // Always use the image uploaded through the admin dashboard when available.
+  // Use the image uploaded through the admin dashboard when available.
   if (project.coverImage?.url) {
     return (
       <div className="relative h-full min-h-[270px] overflow-hidden bg-[#ECEDE7] sm:min-h-[360px]">
@@ -53,7 +55,9 @@ function ProjectVisual({ project }) {
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
         />
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
+
         <span className="absolute bottom-5 left-5 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white backdrop-blur-md">
           {project.category}
         </span>
@@ -61,7 +65,7 @@ function ProjectVisual({ project }) {
     );
   }
 
-  // Keep the original custom artwork available as a fallback.
+  // IronHarvest artwork
   if (project.visual === "ironharvest") {
     return (
       <div className="relative flex h-full min-h-[270px] flex-col justify-between overflow-hidden bg-[#E7EBDD] p-6 sm:min-h-[360px] sm:p-9">
@@ -72,6 +76,7 @@ function ProjectVisual({ project }) {
           <span className="text-xs font-bold tracking-[0.12em] text-[#283B27]">
             IH / EQUIPMENT
           </span>
+
           <span className="rounded-full bg-white/70 px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#4D6049]">
             Corporate website
           </span>
@@ -81,11 +86,13 @@ function ProjectVisual({ project }) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-[#63745A]">
             Built for the field
           </p>
+
           <h3 className="mt-3 max-w-sm text-4xl font-semibold leading-[0.95] tracking-[-0.07em] text-[#253624] sm:text-6xl">
             Powering
             <br />
             agriculture.
           </h3>
+
           <div className="mt-6 flex items-center gap-3">
             <span className="h-px w-12 bg-[#738568]" />
             <span className="text-xs text-[#52634B]">
@@ -101,6 +108,7 @@ function ProjectVisual({ project }) {
     );
   }
 
+  // KARMA artwork
   if (project.visual === "karma") {
     return (
       <div className="relative flex h-full min-h-[250px] flex-col justify-between overflow-hidden bg-[#151515] p-6 sm:min-h-[310px] sm:p-8">
@@ -110,6 +118,7 @@ function ProjectVisual({ project }) {
           <span className="text-xs tracking-[0.22em] text-white/80">
             K A R M A
           </span>
+
           <span className="text-[10px] uppercase tracking-wider text-white/40">
             Fashion label
           </span>
@@ -119,6 +128,7 @@ function ProjectVisual({ project }) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-[#B9E97B]">
             Find your expression
           </p>
+
           <h3 className="mt-3 text-5xl font-semibold tracking-[-0.09em] text-[#F5F3EC] sm:text-7xl">
             OWN
             <br />
@@ -131,12 +141,14 @@ function ProjectVisual({ project }) {
           <span className="text-xs text-white/50">
             Brand & commerce experience
           </span>
+
           <ArrowUpRight size={17} className="text-[#B9E97B]" />
         </div>
       </div>
     );
   }
 
+  // Messages artwork
   if (project.visual === "messages") {
     return (
       <div className="relative flex h-full min-h-[250px] flex-col overflow-hidden bg-[#E9E8F3] p-6 sm:min-h-[310px] sm:p-8">
@@ -146,6 +158,7 @@ function ProjectVisual({ project }) {
           <span className="text-xs font-semibold tracking-wide text-[#484363]">
             INBOX / MESSAGES
           </span>
+
           <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] text-[#615A85]">
             UI prototype
           </span>
@@ -154,9 +167,11 @@ function ProjectVisual({ project }) {
         <div className="relative mt-7 flex flex-1 gap-3">
           <div className="w-[38%] rounded-2xl border border-white/80 bg-white/70 p-3 shadow-sm">
             <div className="mb-4 h-2 w-14 rounded-full bg-[#AAA4D9]" />
+
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="mb-3 flex items-center gap-2">
                 <span className="h-7 w-7 shrink-0 rounded-full bg-[#DAD7EE]" />
+
                 <span
                   className={`h-1.5 rounded-full ${
                     item === 0
@@ -171,16 +186,19 @@ function ProjectVisual({ project }) {
           <div className="flex flex-1 flex-col justify-between rounded-2xl border border-white/80 bg-white/80 p-3 shadow-sm sm:p-4">
             <div className="flex items-center gap-2 border-b border-[#E6E3F0] pb-3">
               <span className="h-7 w-7 rounded-full bg-[#C5C0E9]" />
+
               <div className="space-y-1.5">
                 <div className="h-1.5 w-16 rounded-full bg-[#77709F]" />
                 <div className="h-1 w-10 rounded-full bg-[#D0CDDF]" />
               </div>
             </div>
+
             <div className="space-y-2 py-3">
               <div className="h-7 w-[80%] rounded-xl rounded-bl-sm bg-[#E8E5F6]" />
               <div className="ml-auto h-7 w-[72%] rounded-xl rounded-br-sm bg-[#A9A0E5]" />
               <div className="h-7 w-[60%] rounded-xl rounded-bl-sm bg-[#E8E5F6]" />
             </div>
+
             <div className="h-8 rounded-full border border-[#E6E3F0] bg-white" />
           </div>
         </div>
@@ -189,6 +207,7 @@ function ProjectVisual({ project }) {
           <span className="text-xs text-[#716B91]">
             Conversations, thoughtfully designed
           </span>
+
           <Code2 size={17} className="text-[#716B91]" />
         </div>
       </div>
@@ -202,70 +221,80 @@ function ProjectVisual({ project }) {
   );
 }
 
+// CLICKABLE PROJECT CARD
 function ProjectCard({ project, index }) {
+  const projectSlug = project.slug || project.id;
+
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.12 }}
-      transition={{ duration: 0.55, delay: index * 0.1 }}
-      className={`group min-w-0 overflow-hidden rounded-[1.6rem] border border-black/[0.06] bg-white/80 shadow-[0_12px_50px_-35px_rgba(0,0,0,0.15)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_25px_70px_-35px_rgba(0,0,0,0.2)] ${
-        project.featured ? "lg:col-span-2" : ""
-      }`}
+    <Link
+      to={`/projects/${encodeURIComponent(projectSlug)}`}
+      aria-label={`View ${project.name} project`}
+      className="group block min-w-0"
     >
-      <div className="relative overflow-hidden">
-        <ProjectVisual project={project} />
+      <motion.article
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.12 }}
+        transition={{ duration: 0.55, delay: index * 0.1 }}
+        className={`min-w-0 overflow-hidden rounded-[1.6rem] border border-black/[0.06] bg-white/80 shadow-[0_12px_50px_-35px_rgba(0,0,0,0.15)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_25px_70px_-35px_rgba(0,0,0,0.2)] ${
+          project.featured ? "lg:col-span-2" : ""
+        }`}
+      >
+        <div className="relative overflow-hidden">
+          <ProjectVisual project={project} />
 
-        <span className="absolute left-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/75 text-[11px] font-semibold text-[#35382F] backdrop-blur-md">
-          {project.number}
-        </span>
-      </div>
-
-      <div className="p-5 sm:p-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#85877F]">
-            {project.category}
-          </p>
-          <span className="rounded-full bg-[#F0F2EB] px-3 py-1.5 text-[10px] text-[#69745C]">
-            {project.status}
+          <span className="absolute left-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/75 text-[11px] font-semibold text-[#35382F] backdrop-blur-md">
+            {project.number}
           </span>
         </div>
 
-        <div className="mt-4 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-2xl font-semibold tracking-[-0.055em] sm:text-3xl">
-              {project.name}
-            </h3>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[#777A72]">
-              {project.description}
+        <div className="p-5 sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#85877F]">
+              {project.category}
             </p>
+
+            <span className="rounded-full bg-[#F0F2EB] px-3 py-1.5 text-[10px] text-[#69745C]">
+              {project.status}
+            </span>
           </div>
 
-          <a
-            href="#contact"
-            aria-label={`Ask me about ${project.name}`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 transition group-hover:border-[#B5DB7B] group-hover:bg-[#EAF5D9]"
-          >
-            <ArrowUpRight size={19} />
-          </a>
-        </div>
+          <div className="mt-4 flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-semibold tracking-[-0.055em] transition-colors group-hover:text-[#566D2C] sm:text-3xl">
+                {project.name}
+              </h3>
 
-        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-5">
-          {project.technologies.map((technology) => (
+              <p className="mt-3 max-w-xl text-sm leading-6 text-[#777A72]">
+                {project.description}
+              </p>
+            </div>
+
             <span
-              key={technology}
-              className="rounded-full border border-black/[0.07] px-3 py-1.5 text-[11px] text-[#666960]"
+              aria-hidden="true"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 transition group-hover:border-[#B5DB7B] group-hover:bg-[#EAF5D9]"
             >
-              {technology}
+              <ArrowUpRight size={19} />
             </span>
-          ))}
+          </div>
 
-          <span className="ml-auto text-xs text-[#92948C]">
-            {project.year}
-          </span>
+          <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-5">
+            {project.technologies.map((technology) => (
+              <span
+                key={technology}
+                className="rounded-full border border-black/[0.07] px-3 py-1.5 text-[11px] text-[#666960]"
+              >
+                {technology}
+              </span>
+            ))}
+
+            <span className="ml-auto text-xs text-[#92948C]">
+              {project.year}
+            </span>
+          </div>
         </div>
-      </div>
-    </motion.article>
+      </motion.article>
+    </Link>
   );
 }
 
@@ -329,6 +358,7 @@ export default function SelectedWork() {
           <div>
             <div className="mb-5 flex items-center gap-2.5">
               <span className="h-2 w-2 rounded-full bg-[#A7D84D]" />
+
               <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#777A72]">
                 A selection of my work
               </p>
@@ -358,7 +388,10 @@ export default function SelectedWork() {
                 className="min-h-[320px] animate-pulse rounded-[1.6rem] border border-black/[0.06] bg-white/70 sm:min-h-[400px]"
               />
             ))}
-            <span className="sr-only">Loading published projects…</span>
+
+            <span className="sr-only">
+              Loading published projects…
+            </span>
           </div>
         )}
 
@@ -367,9 +400,11 @@ export default function SelectedWork() {
             <p className="text-lg font-medium text-[#303229]">
               Projects couldn't be loaded.
             </p>
+
             <p className="mt-2 text-sm leading-6 text-[#777A72]">
               {error}
             </p>
+
             <button
               type="button"
               onClick={() => setRetryCount((count) => count + 1)}
@@ -385,6 +420,7 @@ export default function SelectedWork() {
             <p className="text-xl font-medium tracking-tight text-[#303229]">
               New work is on the way.
             </p>
+
             <p className="mt-3 text-sm leading-6 text-[#777A72]">
               Published projects will appear here as they become available.
             </p>
@@ -413,6 +449,7 @@ export default function SelectedWork() {
             className="group inline-flex items-center gap-2 self-start text-sm font-medium transition hover:text-[#719C31] sm:self-auto"
           >
             Have a project in mind?
+
             <ArrowDownRight
               size={17}
               className="transition-transform group-hover:translate-x-1 group-hover:translate-y-1"
